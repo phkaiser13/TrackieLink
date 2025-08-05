@@ -32,8 +32,8 @@ message(STATUS " - Configurado: msgpack-c (manual)")
 
 # --- PortAudio ---
 add_library(portaudio_manual INTERFACE)
-target_include_directories(portaudio_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/portaudio/include)
-target_link_libraries(portaudio_manual INTERFACE ${THIRD_PARTY_DIR}/portaudio/lib/portaudio_x64.lib)
+target_include_directories(portaudio_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/PortaudioWinLib/include)
+target_link_libraries(portaudio_manual INTERFACE ${THIRD_PARTY_DIR}/PortaudioWinLib/lib/x64/ReleaseMinDependency/portaudio_x64.lib)
 message(STATUS " - Configurado: PortAudio (manual)")
 
 # --- OpenCV ---
