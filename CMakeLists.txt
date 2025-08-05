@@ -11,23 +11,23 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
 # --- Caminho para Dependências ---
-set(THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+set(THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party)
 
 # --- ONNX Runtime ---
 add_library(onnxruntime_manual INTERFACE)
-target_include_directories(onnxruntime_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/onnxruntime-win-x64-1.18.0/include)
-target_link_libraries(onnxruntime_manual INTERFACE ${THIRD_PARTY_DIR}/onnxruntime-win-x64-1.18.0/lib/onnxruntime.lib)
+target_include_directories(onnxruntime_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/include)
+target_link_libraries(onnxruntime_manual INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/lib/onnxruntime.lib)
 message(STATUS " - Configurado: ONNX Runtime (manual)")
 
 # --- libcurl ---
 add_library(libcurl_manual INTERFACE)
-target_include_directories(libcurl_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/curl-8.9.0_1-win64-mingw/include)
-target_link_libraries(libcurl_manual INTERFACE ${THIRD_PARTY_DIR}/curl-8.15.0_4-win64-mingw/lib/libcurl.a)
+target_include_directories(libcurl_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/CurlWinLibrary/include)
+target_link_libraries(libcurl_manual INTERFACE ${THIRD_PARTY_DIR}/CurlWinLibrary/lib/libcurl.a)
 message(STATUS " - Configurado: libcurl (manual)")
 
 # --- msgpack-c ---
 add_library(msgpack_manual INTERFACE)
-target_include_directories(msgpack_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/msgpack-c-cpp-6.1.0/include)
+target_include_directories(msgpack_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/mspacklib/include)
 message(STATUS " - Configurado: msgpack-c (manual)")
 
 # --- PortAudio ---
@@ -38,15 +38,15 @@ message(STATUS " - Configurado: PortAudio (manual)")
 
 # --- OpenCV ---
 add_library(opencv_manual INTERFACE)
-target_include_directories(opencv_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/opencv-4.10.0-windows/include)
+target_include_directories(opencv_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/opencv-Win/include)
 target_link_libraries(opencv_manual INTERFACE
-        ${THIRD_PARTY_DIR}/opencv-4.10.0-windows/x64/vc16/lib/opencv_world4100.lib
+        ${THIRD_PARTY_DIR}/opencv-Win/x64/vc16/lib/opencv_world4120.lib
 )
 message(STATUS " - Configurado: OpenCV (manual)")
 
 # --- nlohmann-json ---
 add_library(nlohmann_manual INTERFACE)
-target_include_directories(nlohmann_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/nlohmann-json-3.11.3/include)
+target_include_directories(nlohmann_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/jsonlib/include)
 message(STATUS " - Configurado: nlohmann-json (manual)")
 
 # --- Módulo Rust ---

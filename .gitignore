@@ -30,6 +30,8 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
+# Versões multiplataforma/HeaderOnly são versionaveis.
 src/third_party/*
-!src/third_party/.gitkeep
+!src/third_party/jsonlib
+!src/third_party/msgpacklib
 
