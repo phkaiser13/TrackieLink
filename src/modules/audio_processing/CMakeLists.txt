@@ -7,27 +7,24 @@
 # provided proper attribution and open distribution are maintained.
 #
 
-# --- Definição da Biblioteca de Processamento de Áudio ---
-#
-# Criamos uma biblioteca estática para encapsular toda a interação
-# com a biblioteca PortAudio, tanto para captura quanto para reprodução.
+# --- Biblioteca de Processamento de Áudio ---
+# Cria uma biblioteca estática que encapsula toda a interação
+# com a biblioteca PortAudio (captura e reprodução de áudio)
 add_library(audio_processing STATIC
         handler/audio_handler.cpp
 )
 
-# --- Expondo os Cabeçalhos Públicos ---
-#
-# O cabeçalho 'audio_handler.hpp' definirá a interface da nossa classe
-# AudioHandler, que será usada pelo 'cpp_core'.
+# --- Inclusão de Cabeçalhos Públicos ---
+# Incluímos o diretório local e também o cabeçalho da camada cpp_core,
+# pois o AudioHandler pode ser exposto para uso no núcleo da aplicação.
 target_include_directories(audio_processing PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src/core/cpp_core/include
 )
 
-# --- Vinculando Dependências ---
-#
-# Nossa biblioteca é um wrapper em torno da PortAudio.
-# O alvo 'portaudio_manual' foi definido manualmente no CMakeLists.txt raiz.
-target_link_libraries(audio_processing PUBLIC
-        portaudio_manual
+# --- Vinculação com PortAudio ---
+# PortAudio::portaudio foi definido no CMakeLists.txt raiz como uma INTERFACE
+# com diretórios de include e bibliotecas corretamente definidos.
+target_link_libraries(audio_processing PRIVATE
+        PortAudio::portaudio
 )
