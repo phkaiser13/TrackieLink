@@ -11,77 +11,46 @@
 #define TRACKIE_INFERENCE_H
 
 #include <stddef.h> // Para size_t
+#include <stdint.h> // <<<<<<< CORREÇÃO: Incluir para int64_t
 
 // --- Guarda para compatibilidade C/C++ ---
-// Isso permite que este cabeçalho seja incluído tanto por compiladores C quanto C++.
-// O compilador C++ não fará "name mangling" nos nomes das funções.
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// --- Tipos Compartilhados ---
+// Incluímos os tipos de visão que esta API usa.
+// Agora, DetectionResult vem deste arquivo.
+#include "vision_types.h" // <<<<<<< CORREÇÃO: Incluir a fonte única dos tipos
+
 // --- Tipos Opacos (Opaque Pointers) ---
-// Escondemos a implementação interna. O código cliente (C++) só conhecerá
-// ponteiros para essas estruturas, não seu conteúdo.
 typedef struct InferenceEngine InferenceEngine;
 typedef struct InferenceSession InferenceSession;
 
 // --- Estrutura de Dados para Resultados ---
-// Define uma estrutura clara para os resultados de detecção do YOLO.
-typedef struct {
-    float x1, y1, x2, y2; // Coordenadas da caixa delimitadora (bounding box)
-    int class_id;         // ID da classe detectada
-    float confidence;     // Confiança da detecção
-} DetectionResult;
-
+// typedef struct { ... } DetectionResult; // <<<<<<< CORREÇÃO: REMOVIDO DESTE ARQUIVO
 
 // --- Ciclo de Vida do Motor de Inferência ---
-
-/**
- * @brief Cria e inicializa o ambiente global do motor de inferência (ONNX Runtime).
- * @return Um ponteiro para o motor de inferência ou NULL em caso de falha.
- *         O chamador é responsável por destruir o objeto com destroy_inference_engine.
- */
 InferenceEngine* create_inference_engine();
-
-/**
- * @brief Libera todos os recursos associados ao motor de inferência.
- * @param engine O ponteiro para o motor a ser destruído.
- */
 void destroy_inference_engine(InferenceEngine* engine);
 
-
 // --- Ciclo de Vida da Sessão de Inferência ---
-
-/**
- * @brief Carrega um modelo ONNX do disco e cria uma sessão de inferência.
- * @param engine O motor de inferência global.
- * @param model_path O caminho para o arquivo .onnx do modelo.
- * @return Um ponteiro para a sessão de inferência ou NULL em caso de falha.
- *         O chamador é responsável por destruir o objeto com destroy_inference_session.
- */
 InferenceSession* load_inference_session(InferenceEngine* engine, const char* model_path);
-
-/**
- * @brief Libera todos os recursos associados a uma sessão de inferência.
- * @param session O ponteiro para a sessão a ser destruída.
- */
 void destroy_inference_session(InferenceSession* session);
-
 
 // --- Execução da Inferência ---
 
 /**
- * @brief Executa a inferência em um modelo YOLOv8.
+ * @brief Executa a inferência em um modelo de detecção (como YOLO).
  *
  * @param session A sessão de inferência carregada.
- * @param input_data Um ponteiro para os dados da imagem de entrada (float*),
- *                   normalizados e no formato esperado pelo modelo (ex: NCHW).
+ * @param input_data Ponteiro para os dados da imagem de entrada (float*).
  * @param input_dims As dimensões dos dados de entrada (ex: {1, 3, 640, 640}).
  * @param num_input_dims O número de dimensões na entrada.
- * @param results Um ponteiro para um array de DetectionResult. A função alocará
+ * @param results Ponteiro para um array de DetectionResult. A função alocará
  *                memória para este array. O chamador DEVE liberar esta memória
  *                usando a função free_detection_results.
- * @param num_results Um ponteiro para uma variável size_t que receberá o número
+ * @param num_results Ponteiro para uma variável size_t que receberá o número
  *                    de detecções encontradas.
  * @return 0 em caso de sucesso, -1 em caso de falha.
  */
@@ -100,6 +69,26 @@ int run_yolo_inference(
  */
 void free_detection_results(DetectionResult* results);
 
+/**
+ * @brief Executa a inferência em um modelo que retorna um único vetor de embedding (ex: ArcFace).
+ *
+ * @param session A sessão de inferência carregada.
+ * @param input_data Ponteiro para os dados da imagem de entrada (float*).
+ * @param input_dims As dimensões dos dados de entrada (ex: {1, 3, 112, 112}).
+ * @param num_input_dims O número de dimensões na entrada.
+ * @param embedding_out Ponteiro para um array de float. A função alocará memória
+ *                      para este array. O chamador DEVE liberar esta memória com free().
+ * @param embedding_size Ponteiro para uma variável size_t que receberá o tamanho do embedding.
+ * @return 0 em caso de sucesso, -1 em caso de falha.
+ */
+int run_embedding_inference(
+    InferenceSession* session,
+    const float* input_data,
+    const int64_t* input_dims,
+    size_t num_input_dims,
+    float** embedding_out,
+    size_t* embedding_size
+);
 
 #ifdef __cplusplus
 } // extern "C"

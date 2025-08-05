@@ -22,6 +22,8 @@ add_library(c_inference STATIC
 # inferência (como o 'cpp_core') precisará deste cabeçalho.
 target_include_directories(c_inference PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src/shared/types
+        ${ONNXRUNTIME_INCLUDE_DIR}
 )
 
 # --- Vinculando Dependência: ONNX Runtime ---

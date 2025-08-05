@@ -32,6 +32,7 @@ target_include_directories(TrackieLink PRIVATE
         ${CMAKE_SOURCE_DIR}/src/shared/ffi
         ${CMAKE_SOURCE_DIR}/src/shared/types
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${NLOHMANN_JSON_INCLUDE_DIR}
 )
 
 target_link_libraries(TrackieLink PRIVATE

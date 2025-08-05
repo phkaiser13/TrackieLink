@@ -21,6 +21,7 @@ add_library(audio_processing STATIC
 # AudioHandler, que será usada pelo 'cpp_core'.
 target_include_directories(audio_processing PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src/core/cpp_core/include
 )
 
 # --- Vinculando Dependências ---

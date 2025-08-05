@@ -14,16 +14,29 @@
 #include <opencv2/imgproc.hpp>
 #include <numeric>
 #include <cmath>
+#include <algorithm> // Para std::max_element
+#include <chrono>    // Para o timestamp
 
 namespace {
     // Funções auxiliares de pré-processamento e cálculo
     std::vector<float> preprocess_face(const cv::Mat& frame, int size) {
+        cv::Mat resized, blob;
+        // Modelos de reconhecimento facial como o ArcFace esperam 112x112
+        cv::resize(frame, resized, cv::Size(size, size));
+        // Normalização para [-1, 1] é comum para modelos faciais
+        cv::dnn::blobFromImage(resized, blob, 1.0/127.5, cv::Size(size, size), cv::Scalar(127.5, 127.5, 127.5), true, false, CV_32F);
+        return { (float*)blob.datastart, (float*)blob.dataend };
+    }
+
+    // Pré-processamento para o detector de rostos (pode ser diferente)
+    std::vector<float> preprocess_face_detector(const cv::Mat& frame, int size) {
         cv::Mat blob;
-        cv::dnn::blobFromImage(frame, blob, 1.0/127.5, cv::Size(size, size), cv::Scalar(127.5, 127.5, 127.5), true, false, CV_32F);
+        cv::dnn::blobFromImage(frame, blob, 1.0/255.0, cv::Size(size, size), cv::Scalar(), true, false, CV_32F);
         return { (float*)blob.datastart, (float*)blob.dataend };
     }
 
     float cosine_similarity(const std::vector<float>& a, const std::vector<float>& b) {
+        if (a.size() != b.size() || a.empty()) return 0.0f;
         float dot = 0.0, norm_a = 0.0, norm_b = 0.0;
         for (size_t i = 0; i < a.size(); ++i) {
             dot += a[i] * b[i];
@@ -48,6 +61,10 @@ FaceProcessor::FaceProcessor(InferenceSession* detector, InferenceSession* recog
 void FaceProcessor::_buildDatabase() {
     log::TLog(log::LogLevel::INFO, "[FaceDB] Construindo banco de dados de rostos...");
     m_known_faces.clear();
+    if (!std::filesystem::exists(m_db_path)) {
+        log::TLog(log::LogLevel::WARNING, "[FaceDB] Diretório do banco de dados de rostos não encontrado: ", m_db_path.string());
+        return;
+    }
     for (const auto& person_dir : std::filesystem::directory_iterator(m_db_path)) {
         if (!person_dir.is_directory()) continue;
         std::string person_name = person_dir.path().filename().string();
@@ -65,8 +82,7 @@ void FaceProcessor::_buildDatabase() {
 }
 
 std::vector<DetectionResult> FaceProcessor::_detectFaces(const cv::Mat& frame) {
-    // Usa a mesma lógica do YOLO para detectar rostos
-    auto input_tensor = preprocess_yolo(frame, 320); // Detectores de rosto podem usar tamanhos menores
+    auto input_tensor = preprocess_face_detector(frame, 320);
     const int64_t input_dims[] = {1, 3, 320, 320};
     DetectionResult* raw_results = nullptr;
     size_t num_results = 0;
@@ -77,13 +93,35 @@ std::vector<DetectionResult> FaceProcessor::_detectFaces(const cv::Mat& frame) {
     return results;
 }
 
+// <<<<<<< ESTA É A MUDANÇA PRINCIPAL >>>>>>>
 std::vector<float> FaceProcessor::_generateEmbedding(const cv::Mat& face_image) {
     auto input_tensor = preprocess_face(face_image, 112);
     const int64_t input_dims[] = {1, 3, 112, 112};
-    // A API de inferência precisaria de uma variante para retornar um tensor float bruto
-    // Por agora, simulamos a chamada e o retorno
-    std::vector<float> embedding(512);
-    // ... chamada real à API de inferência aqui ...
+
+    float* raw_embedding = nullptr;
+    size_t embedding_size = 0;
+
+    int status = run_embedding_inference(
+        m_recognizer_session,
+        input_tensor.data(),
+        input_dims,
+        4,
+        &raw_embedding,
+        &embedding_size
+    );
+
+    std::vector<float> embedding;
+    if (status == 0 && embedding_size > 0) {
+        embedding.assign(raw_embedding, raw_embedding + embedding_size);
+    } else {
+        log::TLog(log::LogLevel::ERROR, "Falha ao gerar embedding facial.");
+    }
+
+    // Libera a memória alocada pela API C
+    if (raw_embedding) {
+        free(raw_embedding);
+    }
+
     return embedding;
 }
 
@@ -91,13 +129,19 @@ Identity FaceProcessor::identifyPerson(const cv::Mat& frame, float threshold) {
     auto faces = _detectFaces(frame);
     if (faces.empty()) return {"", 0.0f};
 
-    // Pega o maior rosto
-    auto largest_face = *std::max_element(faces.begin(), faces.end(),
+    auto largest_face_it = std::max_element(faces.begin(), faces.end(),
         [](const auto& a, const auto& b){
             return (a.x2 - a.x1) * (a.y2 - a.y1) < (b.x2 - b.x1) * (b.y2 - b.y1);
         });
 
-    cv::Rect face_roi(largest_face.x1, largest_face.y1, largest_face.x2 - largest_face.x1, largest_face.y2 - largest_face.y1);
+    // Garante que as coordenadas estão dentro dos limites do frame
+    cv::Rect face_roi(
+        static_cast<int>(largest_face_it->x1), static_cast<int>(largest_face_it->y1),
+        static_cast<int>(largest_face_it->x2 - largest_face_it->x1), static_cast<int>(largest_face_it->y2 - largest_face_it->y1)
+    );
+    face_roi &= cv::Rect(0, 0, frame.cols, frame.rows); // Interseção para garantir que está dentro
+    if (face_roi.width <= 0 || face_roi.height <= 0) return {"", 0.0f};
+
     cv::Mat face_image = frame(face_roi);
 
     auto query_embedding = _generateEmbedding(face_image);
@@ -115,7 +159,11 @@ Identity FaceProcessor::identifyPerson(const cv::Mat& frame, float threshold) {
     }
 
     if (best_similarity >= threshold) {
-        return {best_match_name.c_str(), best_similarity};
+        Identity id;
+        strncpy(id.name, best_match_name.c_str(), sizeof(id.name) - 1);
+        id.name[sizeof(id.name) - 1] = '\0'; // Garante terminação nula
+        id.similarity = best_similarity;
+        return id;
     }
     return {"", 0.0f};
 }
@@ -124,12 +172,18 @@ bool FaceProcessor::saveNewFace(const cv::Mat& frame, const std::string& person_
     auto faces = _detectFaces(frame);
     if (faces.empty()) return false;
 
-    auto largest_face = *std::max_element(faces.begin(), faces.end(),
+    auto largest_face_it = std::max_element(faces.begin(), faces.end(),
         [](const auto& a, const auto& b){
             return (a.x2 - a.x1) * (a.y2 - a.y1) < (b.x2 - b.x1) * (b.y2 - b.y1);
         });
 
-    cv::Rect face_roi(largest_face.x1, largest_face.y1, largest_face.x2 - largest_face.x1, largest_face.y2 - largest_face.y1);
+    cv::Rect face_roi(
+        static_cast<int>(largest_face_it->x1), static_cast<int>(largest_face_it->y1),
+        static_cast<int>(largest_face_it->x2 - largest_face_it->x1), static_cast<int>(largest_face_it->y2 - largest_face_it->y1)
+    );
+    face_roi &= cv::Rect(0, 0, frame.cols, frame.rows);
+    if (face_roi.width <= 0 || face_roi.height <= 0) return false;
+
     cv::Mat face_image = frame(face_roi);
 
     std::filesystem::path person_dir = m_db_path / person_name;
@@ -140,7 +194,7 @@ bool FaceProcessor::saveNewFace(const cv::Mat& frame, const std::string& person_
 
     bool success = cv::imwrite((person_dir / filename).string(), face_image);
     if (success) {
-        _buildDatabase(); // Reconstrói o banco de dados em memória
+        _buildDatabase(); // Reconstrói o banco de dados em memória com o novo rosto
     }
     return success;
 }

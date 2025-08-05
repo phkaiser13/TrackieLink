@@ -14,8 +14,12 @@
 #include <string>
 #include <atomic>
 
-// Opaque pointer para a estrutura do stream da PortAudio
-struct PaStream;
+// <<<<<<< CORREÇÃO: Incluir o cabeçalho real da PortAudio >>>>>>>
+// Isso nos dá as definições corretas para PaStream, PaStreamCallbackTimeInfo, etc.
+#include <portaudio.h>
+
+// <<<<<<< CORREÇÃO: Remover a declaração "forward" incorreta >>>>>>>
+// struct PaStream; // Esta linha causava o erro de redefinição.
 
 namespace trackie::audio {
 
@@ -81,11 +85,13 @@ public:
 
 private:
     // --- Métodos de Callback C-style para PortAudio ---
+    // <<<<<<< CORREÇÃO: Assinatura do método agora corresponde exatamente ao typedef PaStreamCallback >>>>>>>
     static int paInputStreamCallback(
-        const void* inputBuffer, void* outputBuffer,
+        const void* inputBuffer,
+        void* outputBuffer,
         unsigned long framesPerBuffer,
-        const void* timeInfo, // In C++: const PaStreamCallbackTimeInfo*
-        unsigned long statusFlags, // In C++: PaStreamCallbackFlags
+        const PaStreamCallbackTimeInfo* timeInfo,
+        PaStreamCallbackFlags statusFlags,
         void* userData
     );
 

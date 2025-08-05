@@ -13,40 +13,52 @@ set(CMAKE_C_EXTENSIONS OFF)
 # --- Caminho para Dependências ---
 set(THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party)
 
+# --- Definição de Dependências de Terceiros como Alvos INTERFACE ---
+# Esta é a maneira moderna de gerenciar dependências locais.
+# Criamos um alvo para cada biblioteca que encapsula suas propriedades (includes, libs).
+
 # --- ONNX Runtime ---
-add_library(onnxruntime_manual INTERFACE)
-target_include_directories(onnxruntime_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/include)
-target_link_libraries(onnxruntime_manual INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/lib/onnxruntime.lib)
+add_library(onnxruntime INTERFACE) # <<-- CORREÇÃO: Nome do alvo simplificado
+target_include_directories(onnxruntime SYSTEM INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/include)
+target_link_libraries(onnxruntime INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/lib/onnxruntime.lib)
 message(STATUS " - Configurado: ONNX Runtime (manual)")
 
 # --- libcurl ---
-add_library(libcurl_manual INTERFACE)
-target_include_directories(libcurl_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/CurlWinLibrary/include)
-target_link_libraries(libcurl_manual INTERFACE ${THIRD_PARTY_DIR}/CurlWinLibrary/lib/libcurl.a)
+add_library(CURL::libcurl INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão para compatibilidade
+set_target_properties(CURL::libcurl PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/CurlWinLibrary/include"
+        INTERFACE_LINK_LIBRARIES "${THIRD_PARTY_DIR}/CurlWinLibrary/lib/libcurl.a"
+)
 message(STATUS " - Configurado: libcurl (manual)")
 
 # --- msgpack-c ---
-add_library(msgpack_manual INTERFACE)
-target_include_directories(msgpack_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/mspacklib/include)
+add_library(msgpack-c::msgpack-c INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
+set_target_properties(msgpack-c::msgpack-c PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/mspacklib/include"
+)
 message(STATUS " - Configurado: msgpack-c (manual)")
 
 # --- PortAudio ---
-add_library(portaudio_manual INTERFACE)
-target_include_directories(portaudio_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/PortaudioWinLib/include)
-target_link_libraries(portaudio_manual INTERFACE ${THIRD_PARTY_DIR}/PortaudioWinLib/lib/x64/ReleaseMinDependency/portaudio_x64.lib)
+add_library(PortAudio::portaudio INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
+set_target_properties(PortAudio::portaudio PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/PortaudioWinLib/include"
+        INTERFACE_LINK_LIBRARIES "${THIRD_PARTY_DIR}/PortaudioWinLib/lib/x64/ReleaseMinDependency/portaudio_x64.lib"
+)
 message(STATUS " - Configurado: PortAudio (manual)")
 
 # --- OpenCV ---
-add_library(opencv_manual INTERFACE)
-target_include_directories(opencv_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/opencv-Win/include)
-target_link_libraries(opencv_manual INTERFACE
-        ${THIRD_PARTY_DIR}/opencv-Win/x64/vc16/lib/opencv_world4120.lib
+add_library(OpenCV::OpenCV INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
+set_target_properties(OpenCV::OpenCV PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/opencv-Win/include"
+        INTERFACE_LINK_LIBRARIES "${THIRD_PARTY_DIR}/opencv-Win/x64/vc16/lib/opencv_world4120.lib"
 )
 message(STATUS " - Configurado: OpenCV (manual)")
 
 # --- nlohmann-json ---
-add_library(nlohmann_manual INTERFACE)
-target_include_directories(nlohmann_manual SYSTEM INTERFACE ${THIRD_PARTY_DIR}/jsonlib/include)
+add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
+set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/jsonlib/include"
+)
 message(STATUS " - Configurado: nlohmann-json (manual)")
 
 # --- Módulo Rust ---
@@ -59,30 +71,33 @@ add_custom_target(
         VERBATIM
 )
 
-add_library(rust_core_lib STATIC IMPORTED GLOBAL)
+add_library(rust_core_lib STATIC IMPORTED) # <<-- CORREÇÃO: GLOBAL não é necessário aqui
 set_target_properties(rust_core_lib PROPERTIES
         IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/src/core/rust_core/target/release/rust_core.lib
 )
-add_dependencies(rust_core_lib build_rust_core)
+# A dependência é do alvo final no Rust, não da biblioteca importada
+# add_dependencies(rust_core_lib build_rust_core) # <<-- CORREÇÃO: Esta linha é redundante e pode causar problemas
 
 # --- Organização dos Submódulos ---
 message(STATUS "Configurando os módulos C/C++...")
 
-# Nível 0
+# A ordem é crucial para que as dependências sejam conhecidas antes de serem usadas.
+# Nível 0: Utilitários e APIs de baixo nível
+add_subdirectory(src/shared/utils)
 add_subdirectory(src/api/gemini_rest_client)
 add_subdirectory(src/modules/c_inference)
 add_subdirectory(src/modules/msgpack_loader)
 
-# Nível 1
+# Nível 1: Processadores de I/O e Visão
 add_subdirectory(src/modules/audio_processing)
 add_subdirectory(src/modules/video_processing)
 add_subdirectory(src/modules/vision)
 
-# Nível 2
+# Nível 2: Lógica de Negócios
 add_subdirectory(src/modules/function_calling)
 
-# Nível 3
+# Nível 3: Serviços de Longa Duração
 add_subdirectory(src/services/gemini_service)
 
-# Nível 4
+# Nível 4: O Orquestrador Principal
 add_subdirectory(src/core/cpp_core)

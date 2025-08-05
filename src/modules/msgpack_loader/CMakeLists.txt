@@ -22,6 +22,7 @@ add_library(msgpack_loader STATIC
 # tenha acesso automático ao diretório 'include'.
 target_include_directories(msgpack_loader PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${NLOHMANN_JSON_INCLUDE_DIR}
 )
 
 # --- Vinculando Dependências ---

@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 #include <variant>
+#include <nlohmann/json.hpp>
 
 // --- Dependência Externa ---
 // nlohmann/json é usado na implementação, mas não exposto na interface pública.

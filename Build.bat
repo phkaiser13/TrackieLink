@@ -48,7 +48,7 @@ echo Modelos baixados.
 REM Build com CMake
 echo Rodando cmake para buildar projeto...
 cmake -S . -B build
-
+cmake --build build
 REM Opcional: buildar com cmake --build
 echo Buildando o projeto...
 cmake --build build

@@ -1,0 +1,21 @@
+Interface C Explícita (#[no_mangle] e extern "C"):
+#[no_mangle]: Esta anotação diz ao compilador Rust para não alterar o nome da função. Sem isso, ele geraria um símbolo como _ZN9rust_core25velocity_check_and_cache_asset17h...E, que o C++ não conseguiria encontrar. Com a anotação, o nome no arquivo de biblioteca será exatamente velocity_check_and_cache_asset.
+extern "C": Isso instrui o compilador a usar a convenção de chamada da linguagem C para esta função, garantindo que a maneira como os argumentos são passados e os valores são retornados seja compatível com o que o C/C++ espera.
+Segurança na Fronteira FFI: A interação com ponteiros brutos de C é inerentemente unsafe em Rust.
+if asset_path_ptr.is_null(): A primeira coisa que fazemos é uma verificação de nulidade, uma prática de programação defensiva crucial.
+unsafe { CStr::from_ptr(...) }: Envolvemos a desreferência do ponteiro em um bloco unsafe, reconhecendo e isolando a parte do código que o compilador Rust não pode garantir que seja segura.
+CStr: Em vez de ler o ponteiro byte a byte, usamos o tipo CStr, que é projetado especificamente para encapsular uma string C (um ponteiro para uma sequência de bytes terminada em nulo) de forma segura.
+c_str.to_str(): Convertemos a string C para uma string Rust (&str), que é garantidamente UTF-8. O código lida com o caso de erro se o C++ passar uma sequência de bytes inválida.
+Gerenciamento de Estado Thread-Safe (Mutex): Para ter um estado global (o cache) que pode ser acessado por múltiplos threads (uma possibilidade real em nossa aplicação), precisamos de sincronização. std::sync::Mutex é a maneira idiomática do Rust de garantir que apenas um thread possa acessar os dados por vez, prevenindo "race conditions". O .lock().unwrap() adquire o bloqueio; ele entrará em pânico se o mutex estiver "envenenado" (um thread entrou em pânico enquanto segurava o bloqueio), o que é um comportamento seguro e padrão.
+Ciclo de Vida Explícito (init/destroy): Como o Rust não tem um "construtor/destrutor de programa" estável, fornecemos funções init e destroy explícitas. A aplicação C++ será responsável por chamar velocity_init_cache() durante sua inicialização e velocity_destroy_cache() durante sua limpeza, garantindo que os recursos do Rust sejam gerenciados corretamente.
+Tipos de Dados da libc: Usamos libc::c_char em vez de u8 ou i8 para deixar explícito que estamos esperando um char da linguagem C.
+Este código Rust é seguro, eficiente e expõe uma API C limpa e bem definida. Ele está pronto para ser compilado pelo cargo (que será acionado pelo nosso CMakeLists.txt principal) e chamado pelo nosso application.cpp.
+
+
+não, o Rust não está aqui para "encher linguiça". Pelo contrário, ele desempenha um papel estratégico e deliberado que aborda uma das maiores fraquezas históricas de sistemas escritos em C e C++.
+No nosso projeto, o Rust é o nosso "Guardião da Segurança de Memória e Concorrência".
+
+Em resumo:
+C nos dá o desempenho bruto e o controle de baixo nível para a inferência.
+C++ nos dá a orquestração de alto nível e um ecossistema maduro para a lógica da aplicação.
+Rust nos dá a segurança e a robustez para construir os componentes mais complexos e críticos em termos de segurança, sem sacrificar o desempenho.

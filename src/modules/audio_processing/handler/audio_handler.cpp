@@ -8,15 +8,17 @@
  */
 
 #include "audio_handler.hpp"
-#include <portaudio.h>
+// A inclusão de <portaudio.h> agora está no audio_handler.hpp
 #include <stdexcept>
 #include <iostream>
+#include "logger.hpp" // Usando nosso logger para consistência
 
 namespace trackie::audio {
 
 // --- Macro Auxiliar para Tratamento de Erros da PortAudio ---
 #define CHECK_PA_ERROR(err) \
     if (err != paNoError) { \
+        log::TLog(log::LogLevel::ERROR, "PortAudio error: ", Pa_GetErrorText(err)); \
         throw std::runtime_error(std::string("PortAudio error: ") + Pa_GetErrorText(err)); \
     }
 
@@ -34,17 +36,19 @@ AudioHandler::~AudioHandler() {
 
 void AudioHandler::_initialize() {
     if (m_is_initialized.load()) return;
-    std::cout << "[Audio] Inicializando PortAudio..." << std::endl;
+    log::TLog(log::LogLevel::INFO, "[Audio] Inicializando PortAudio...");
     CHECK_PA_ERROR(Pa_Initialize());
     m_is_initialized.store(true);
 }
 
 void AudioHandler::_terminate() {
     if (!m_is_initialized.load()) return;
-    std::cout << "[Audio] Finalizando PortAudio..." << std::endl;
+    log::TLog(log::LogLevel::INFO, "[Audio] Finalizando PortAudio...");
     stopInputStream();
     stopOutputStream();
-    CHECK_PA_ERROR(Pa_Terminate());
+    // Não checa o erro aqui, pois Pa_Terminate pode falhar se já foi chamado,
+    // e não queremos lançar uma exceção de um destrutor.
+    Pa_Terminate();
     m_is_initialized.store(false);
 }
 
@@ -52,7 +56,7 @@ void AudioHandler::_terminate() {
 
 void AudioHandler::startInputStream(const AudioInputCallback& callback) {
     if (m_input_stream) {
-        std::cout << "[Audio] Stream de entrada já está ativo." << std::endl;
+        log::TLog(log::LogLevel::WARNING, "[Audio] Stream de entrada já está ativo.");
         return;
     }
 
@@ -68,7 +72,7 @@ void AudioHandler::startInputStream(const AudioInputCallback& callback) {
     inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
     inputParameters.hostApiSpecificStreamInfo = NULL;
 
-    std::cout << "[Audio] Abrindo stream de entrada a " << AUDIO_SEND_SAMPLE_RATE << " Hz..." << std::endl;
+    log::TLog(log::LogLevel::INFO, "[Audio] Abrindo stream de entrada a ", AUDIO_SEND_SAMPLE_RATE, " Hz...");
 
     CHECK_PA_ERROR(Pa_OpenStream(
         &m_input_stream,
@@ -82,14 +86,15 @@ void AudioHandler::startInputStream(const AudioInputCallback& callback) {
     ));
 
     CHECK_PA_ERROR(Pa_StartStream(m_input_stream));
-    std::cout << "[Audio] Escutando microfone..." << std::endl;
+    log::TLog(log::LogLevel::INFO, "[Audio] Escutando microfone...");
 }
 
 void AudioHandler::stopInputStream() {
     if (m_input_stream) {
-        std::cout << "[Audio] Parando stream de entrada..." << std::endl;
-        CHECK_PA_ERROR(Pa_StopStream(m_input_stream));
-        CHECK_PA_ERROR(Pa_CloseStream(m_input_stream));
+        log::TLog(log::LogLevel::INFO, "[Audio] Parando stream de entrada...");
+        // Pa_StopStream pode retornar um erro se o stream já estiver parado, o que não é crítico.
+        Pa_StopStream(m_input_stream);
+        Pa_CloseStream(m_input_stream);
         m_input_stream = nullptr;
         m_input_callback = nullptr; // Limpa o callback
     }
@@ -99,7 +104,7 @@ void AudioHandler::stopInputStream() {
 
 void AudioHandler::startOutputStream() {
     if (m_output_stream) {
-        std::cout << "[Audio] Stream de saída já está ativo." << std::endl;
+        log::TLog(log::LogLevel::WARNING, "[Audio] Stream de saída já está ativo.");
         return;
     }
 
@@ -113,7 +118,7 @@ void AudioHandler::startOutputStream() {
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
 
-    std::cout << "[Audio] Abrindo stream de saída a " << AUDIO_RECEIVE_SAMPLE_RATE << " Hz..." << std::endl;
+    log::TLog(log::LogLevel::INFO, "[Audio] Abrindo stream de saída a ", AUDIO_RECEIVE_SAMPLE_RATE, " Hz...");
 
     CHECK_PA_ERROR(Pa_OpenStream(
         &m_output_stream,
@@ -127,21 +132,20 @@ void AudioHandler::startOutputStream() {
     ));
 
     CHECK_PA_ERROR(Pa_StartStream(m_output_stream));
-    std::cout << "[Audio] Player de áudio pronto." << std::endl;
+    log::TLog(log::LogLevel::INFO, "[Audio] Player de áudio pronto.");
 }
 
 void AudioHandler::stopOutputStream() {
     if (m_output_stream) {
-        std::cout << "[Audio] Parando stream de saída..." << std::endl;
-        CHECK_PA_ERROR(Pa_StopStream(m_output_stream));
-        CHECK_PA_ERROR(Pa_CloseStream(m_output_stream));
+        log::TLog(log::LogLevel::INFO, "[Audio] Parando stream de saída...");
+        Pa_StopStream(m_output_stream);
+        Pa_CloseStream(m_output_stream);
         m_output_stream = nullptr;
     }
 }
 
 void AudioHandler::playAudioChunk(const std::vector<float>& audioData) {
-    if (!m_output_stream) {
-        // std::cerr << "[Audio] Aviso: Tentativa de tocar áudio sem um stream de saída ativo." << std::endl;
+    if (!m_output_stream || audioData.empty()) {
         return;
     }
     CHECK_PA_ERROR(Pa_WriteStream(m_output_stream, audioData.data(), audioData.size()));
@@ -151,10 +155,11 @@ void AudioHandler::playAudioChunk(const std::vector<float>& audioData) {
 // --- Implementação do Callback C-style ---
 
 int AudioHandler::paInputStreamCallback(
-    const void* inputBuffer, void* outputBuffer,
+    const void* inputBuffer,
+    void* outputBuffer,
     unsigned long framesPerBuffer,
-    const void* timeInfo,
-    unsigned long statusFlags,
+    const PaStreamCallbackTimeInfo* timeInfo, // <<<<<<< CORREÇÃO APLICADA
+    PaStreamCallbackFlags statusFlags,      // <<<<<<< CORREÇÃO APLICADA
     void* userData
 ) {
     // Converte o ponteiro userData de volta para um ponteiro da nossa classe.

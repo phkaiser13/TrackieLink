@@ -18,8 +18,9 @@ Cargo.lock
 *.out
 
 # Arquivos de IDEs
-.vscode/
 .idea/
+.vs/
+.vscode/
 *.suo
 *.ntvs*
 *.njsproj
