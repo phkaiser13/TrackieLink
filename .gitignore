@@ -35,3 +35,5 @@ src/third_party/*
 !src/third_party/jsonlib
 !src/third_party/msgpacklib
 
+.onnx
+
