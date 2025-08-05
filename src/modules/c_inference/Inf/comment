@@ -1,0 +1,9 @@
+Gerenciamento de Erros com Macro: A macro CHECK_ORT_STATUS é uma técnica C clássica para reduzir código repetitivo. Em vez de escrever o mesmo bloco if (status != NULL) {...} após cada chamada de API, usamos a macro, tornando o código principal muito mais limpo e legível.
+Gerenciamento de Memória Explícito e Seguro:
+Toda alocação com malloc é verificada para falhas.
+memset é usado para zerar a estrutura da sessão, evitando o uso de valores não inicializados.
+O contrato de memória da API é rigorosamente seguido. load_inference_session aloca e retorna os nomes dos nós, e destroy_inference_session os libera usando o mesmo alocador.
+Para os resultados, uma lista temporária é alocada na stack (ou heap, como aqui), preenchida, e só então a memória final é alocada com o tamanho exato e retornada ao chamador. Isso é eficiente e evita o re-alocamento contínuo (realloc).
+Processamento de Tensor Transposto: O ponto mais complexo é o loop de pós-processamento. O código reflete corretamente a estrutura de dados de saída do YOLOv8, que é transposta ([dim1, dim2, dim3] em vez de [dim3, dim2, dim1]). O acesso output_data[(4 + j) * num_detections + i] navega corretamente por essa estrutura para encontrar a pontuação de cada classe para cada detecção.
+Abstração de Detalhes: O código C++ que chamará run_yolo_inference não precisa saber nada sobre tensores, OrtValue, ou memória da CPU. Ele apenas passa um buffer de float e recebe de volta uma lista limpa de DetectionResult. A complexidade do ONNX Runtime está perfeitamente encapsulada.
+Liberação de Recursos: Cada recurso do ONNX (OrtSessionOptions, OrtMemoryInfo, OrtValue, etc.) é liberado (Release...) assim que não é mais necessário, prevenindo vazamentos de memória.

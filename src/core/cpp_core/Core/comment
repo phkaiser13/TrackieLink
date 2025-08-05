@@ -1,0 +1,17 @@
+Integração Limpa: Chamar as funções Rust é tão simples quanto chamar qualquer outra função C. A complexidade da FFI foi completamente abstraída pelo cabeçalho cpp_to_rust_bridge.h e pela configuração do CMakeLists.txt. O código C++ não precisa saber que velocity_init_cache é implementado em Rust; ele apenas a chama.
+Ciclo de Vida Respeitado: As funções velocity_init_cache e velocity_destroy_cache são chamadas nos pontos lógicos corretos dentro do ciclo de vida da Application – inicialização e limpeza. Isso garante que os recursos gerenciados pelo Rust sejam criados e destruídos corretamente junto com o resto da aplicação.
+Comunicação de Dados: A chamada velocity_check_and_cache_asset(current_asset.c_str()) demonstra a passagem de dados do C++ para o Rust. O método .c_str() da std::string fornece o ponteiro const char* que a nossa API Rust espera.
+Lógica de Exemplo Funcional: O novo _main_loop não é mais um placeholder. Ele executa uma lógica real que interage com o módulo Rust, provando que toda a cadeia de ferramentas – CMake, Cargo, C++, Rust, FFI – está funcionando em conjunto. Ao rodar o programa, veremos os println! do Rust e os std::cout do C++ interagindo.
+
+Thread Dedicado para Gemini (_gemini_communication_loop): A mudança mais crucial. A comunicação com a API, que é uma operação de rede bloqueante, agora acontece em seu próprio thread (m_gemini_thread). Isso libera o _main_loop para ser altamente responsivo, lidando apenas com a atualização da UI (preview) e a captura de dados dos callbacks.
+Fluxo de Conversa Real: O _gemini_communication_loop agora mantém um estado de conversa (request_body). Quando uma "function call" é recebida, ele:
+a. Chama _execute_function_call.
+b. Recebe o resultado em JSON.
+c. Adiciona o resultado de volta à conversa com o role: "function".
+d. Na próxima iteração, ele enviará a conversa atualizada, permitindo que o Gemini comente sobre o resultado da função. Isso substitui a simulação por um fluxo de diálogo real.
+Parsing de Resposta Robusto: O callback do streamGenerateContent agora envolve o nlohmann::json::parse em um try-catch. Isso é essencial porque a API de streaming pode enviar pedaços de JSON que não são válidos por si só. O catch simplesmente ignora esses erros, esperando que os chunks se completem.
+Respostas JSON Válidas: Os métodos de "function calling" agora retornam strings JSON válidas, usando nlohmann::json para construir o objeto e .dump() para serializá-lo. Isso garante que a resposta enviada de volta ao Gemini esteja no formato correto.
+Gerenciamento de Thread Completo: O destrutor _cleanup agora chama m_gemini_thread.join(), garantindo que o thread de comunicação termine de forma limpa antes que a aplicação seja encerrada.
+
+
+

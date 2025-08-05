@@ -1,0 +1,35 @@
+# Arquivos de compilação do CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Arquivos de compilação do Cargo (Rust)
+target/
+Cargo.lock
+
+# Executáveis e bibliotecas compiladas
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.out
+
+# Arquivos de IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+src/third_party/*
+!src/third_party/.gitkeep
+

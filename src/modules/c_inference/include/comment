@@ -1,0 +1,9 @@
+Interface C Pura (extern "C"): A guarda #ifdef __cplusplus é a pedra angular da interoperabilidade C/C++. Ela instrui o compilador C++ a tratar essas declarações como funções C, desabilitando o "name mangling" e garantindo que o linker C++ possa encontrar as implementações compiladas em C.
+Encapsulamento com Tipos Opacos: O código C++ que usar esta API não terá ideia de como InferenceEngine ou InferenceSession são definidos. Eles são "caixas-pretas". O cliente apenas recebe e passa ponteiros (InferenceEngine*). Isso é encapsulamento em sua forma mais pura em C, permitindo que a implementação interna (inference.c) mude drasticamente sem quebrar o código cliente.
+Contrato de Memória Explícito: Em C, o gerenciamento de memória é manual e deve ser explícito. O design da API deixa isso claro:
+Funções create_* retornam um ponteiro que o chamador "possui".
+Funções destroy_* recebem esse ponteiro para liberar os recursos.
+run_yolo_inference aloca a memória para os resultados e a retorna através de um ponteiro duplo (DetectionResult**).
+free_detection_results é fornecida para que o chamador possa liberar essa memória sem precisar saber como ela foi alocada (malloc, calloc, etc.). Este é um contrato de API muito robusto.
+Estruturas de Dados Claras: Em vez de retornar um float** bruto e confuso, a API retorna um array de DetectionResult. Isso é auto-documentado, mais seguro e muito mais fácil de iterar e usar no lado do C++.
+Segurança e Clareza: Os parâmetros são bem definidos. O uso de const para dados de entrada (const float*, const char*) indica que a função não modificará esses dados. O uso de ponteiros para retornar valores (DetectionResult**, size_t*) é um padrão C idiomático.

@@ -1,0 +1,7 @@
+Importante >
+
+Design Multi-Threaded: A captura de vídeo é uma operação de bloqueio contínua. Executá-la no thread principal congelaria toda a aplicação. A solução correta é dedicar um thread separado (m_capture_thread) exclusivamente para o loop de captura (_captureLoop).
+RAII para Thread: O destrutor ~VideoHandler chama stopCapture(), que por sua vez chama m_capture_thread.join(). Isso garante que, quando um objeto VideoHandler é destruído, o thread de captura é finalizado de forma limpa, evitando que ele se torne um "zumbi". Este é o RAII aplicado ao gerenciamento de threads.
+Comunicação com Callback: O VideoHandler não sabe (e não deve saber) o que a aplicação fará com os frames. Ele simplesmente os captura e os entrega através do VideoFrameCallback. Isso desacopla a captura da lógica de processamento (que envolverá o c_inference).
+Segurança de Thread com std::atomic: A flag m_is_running é std::atomic<bool>. Isso é crucial porque ela é escrita pelo thread principal (em stopCapture) e lida pelo thread de captura (no while). Usar std::atomic garante que essas operações sejam seguras e que as mudanças na flag sejam visíveis entre os threads sem "race conditions".
+Encapsulamento do OpenCV: A classe VideoHandler esconde todos os detalhes da API do OpenCV (cv::VideoCapture, read, release). O cpp_core só precisa interagir com a interface limpa e segura do VideoHandler.

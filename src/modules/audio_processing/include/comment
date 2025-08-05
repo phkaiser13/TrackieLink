@@ -1,0 +1,6 @@
+Análise de Engenharia
+Abstração de Classe: A classe AudioHandler encapsula toda a complexidade da PortAudio. O cpp_core não precisa se preocupar com a inicialização global, o término ou o gerenciamento de ponteiros de stream.
+Design Assíncrono com Callbacks: Assim como no Python, a captura de áudio é um processo contínuo. O padrão de callback (AudioInputCallback) é a maneira mais natural e eficiente de lidar com isso. O AudioHandler gerencia o thread de áudio da PortAudio e simplesmente invoca nossa função C++ quando os dados estão prontos.
+Ponte C -> C++: O paInputStreamCallback é um static método que serve como a ponte entre a API C da PortAudio e nosso código C++. Usaremos o ponteiro userData para passar um ponteiro this (para nossa instância AudioHandler), permitindo que o callback C chame um método de membro C++.
+Separação de Entrada e Saída: A classe gerencia streams de entrada e saída separadamente, cada um com seus próprios métodos start/stop. Isso espelha a necessidade da aplicação de capturar e reproduzir áudio simultaneamente, mas de forma independente.
+Segurança de Thread com std::atomic: m_is_initialized é atômico para evitar race conditions se, hipoteticamente, diferentes threads tentassem inicializar ou terminar a biblioteca ao mesmo tempo.

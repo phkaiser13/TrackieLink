@@ -1,0 +1,7 @@
+Classe Central: O padrão de ter uma classe Application central é excelente para organizar programas complexos. Ela encapsula todo o estado e a lógica, evitando o uso de variáveis globais.
+Gerenciamento de Recursos (RAII):
+Para componentes C++ como o GeminiClient, usamos std::unique_ptr. Isso garante que, quando o objeto Application for destruído, o destrutor do GeminiClient será chamado automaticamente, liberando seus recursos. É o RAII (Resource Acquisition Is Initialization) em ação.
+Para os recursos C (InferenceEngine*, InferenceSession*), usamos ponteiros brutos. O RAII ainda é aplicado, mas manualmente: o construtor da Application chamará as funções create_*, e o destrutor chamará as funções destroy_*. Isso é encapsulado dentro da classe, então o usuário da classe não precisa se preocupar com isso.
+Prevenção de Cópias: Application(const Application&) = delete; e Application& operator=(const Application&) = delete; são cruciais. Nossa aplicação é um singleton lógico; não faz sentido copiá-la. Desabilitar a cópia previne erros sutis de gerenciamento de recursos.
+Shutdown Graceful: std::atomic<bool> m_stop_flag é a maneira moderna e segura de sinalizar para o loop principal (que pode estar em um thread diferente no futuro) que ele deve parar. std::atomic garante que as operações de leitura e escrita nesta flag sejam indivisíveis, evitando "race conditions".
+Separação de Responsabilidades: Os métodos privados (_initialize, _main_loop, _cleanup, _load_configuration) dividem a lógica complexa em partes gerenciáveis e auto-documentadas.
