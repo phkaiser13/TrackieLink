@@ -2,34 +2,19 @@
 set -e
 
 # Cria os diretórios caso não existam
-mkdir -p src/third_party
 mkdir -p src/WorkTools/Models/Contextual
+mkdir -p build
 
-echo "Baixando bibliotecas..."
+echo "Instalando dependências com Conan..."
+# Instala as dependências do conanfile.py, gerando os arquivos do CMake no diretório 'build'
+# --build=missing: Compila pacotes da fonte se um binário pré-compilado não for encontrado.
+# -c tools.system.package_manager:mode=install: Autoriza o Conan a instalar dependências de sistema (ex: apt, yum).
+# -c tools.system.package_manager:sudo=True: Usa sudo para o gerenciador de pacotes do sistema.
+conan install . --output-folder=build --build=missing -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
 
-LIB_URL_BASE="https://github.com/phkaiser13/TrackieAssets/releases/download/Lib.LINK.1.0/"
+echo "Dependências instaladas."
 
-declare -a libs=(
-  "CurlWayLibrary.zip"
-  "OnnxRuntimeWay.zip"
-  "opencv-Way.zip"
-  "PortaudioWay.zip"
-)
-
-for lib in "${libs[@]}"; do
-  echo "Baixando $lib..."
-  curl -L -o "src/third_party/$lib" "$LIB_URL_BASE$lib"
-
-  echo "Extraindo $lib..."
-  unzip -o "src/third_party/$lib" -d src/third_party/
-
-  echo "Removendo arquivo zip $lib..."
-  rm "src/third_party/$lib"
-done
-
-echo "Bibliotecas baixadas e extraídas."
-
-echo "Baixando modelos..."
+echo "Baixando modelos de IA..."
 
 MODEL_URL_BASE="https://github.com/phkaiser13/TrackieAssets/releases/download/Base.LINK.1.0/"
 
@@ -47,12 +32,13 @@ done
 
 echo "Modelos baixados."
 
-echo "Rodando cmake para buildar projeto..."
-
+echo "Configurando o projeto com CMake..."
+# Configura o projeto. O toolchain do Conan será encontrado automaticamente em 'build/conan_toolchain.cmake'
 cmake -S . -B build
 
-echo "Buildando o projeto..."
+echo "Compilando o projeto..."
 
 cmake --build build
 
 echo "Processo finalizado."
+echo "O executável está em: build/src/core/cpp_core/TrackieLink"

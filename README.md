@@ -15,46 +15,42 @@ O projeto é dividido em módulos claros com responsabilidades bem definidas:
 
 ## Compilando o Projeto
 
+O projeto utiliza o **Conan** para gerenciar as dependências C++ e o **CMake** como sistema de build. O processo foi simplificado com scripts para facilitar a compilação.
+
 ### Pré-requisitos
 
-Você precisará ter as seguintes ferramentas e bibliotecas de desenvolvimento instaladas:
+Você precisará ter as seguintes ferramentas instaladas e configuradas no seu `PATH`:
 
--   CMake (versão 3.16+)
--   Um compilador C++ moderno (GCC, Clang, MSVC)
--   O toolchain do Rust (incluindo `cargo`)
--   **Bibliotecas de Desenvolvimento:**
-    -   libcurl
-    -   ONNX Runtime
-    -   PortAudio
-    -   OpenCV 4+
-    -   msgpack-c
-    -   nlohmann-json
+-   **CMake** (versão 3.20+)
+-   Um **Compilador C++** moderno (GCC, Clang, ou MSVC)
+-   O **Toolchain do Rust** (incluindo `cargo`)
+-   **Conan** (versão 2.x): `pip install conan`
 
 ### Passos para Compilar
 
-1.  Clone o repositório:
+O processo de compilação é automatizado através de scripts. Eles irão instalar as dependências via Conan, baixar os modelos de IA necessários e compilar o projeto.
+
+1.  **Clone o repositório:**
     ```bash
     git clone [URL_DO_REPOSITORIO]
     cd TrackieLink
     ```
 
-2.  Crie um diretório de build:
-    ```bash
-    mkdir build
-    cd build
-    ```
+2.  **Execute o script de build para a sua plataforma:**
 
-3.  Execute o CMake para configurar o projeto. Você pode precisar ajudar o CMake a encontrar as bibliotecas se elas não estiverem em um caminho padrão:
-    ```bash
-    cmake .. -DCMAKE_PREFIX_PATH="/caminho/para/onnxruntime;/caminho/para/outra/lib"
-    ```
+    -   **Para Linux ou macOS:**
+        ```bash
+        ./Scripts/Build.sh
+        ```
 
-4.  Compile o projeto:
-    ```bash
-    cmake --build . --config Release
-    ```
+    -   **Para Windows:**
+        ```cmd
+        .\Scripts\Build.bat
+        ```
 
-5.  O executável `TrackieLink` estará localizado no diretório `build/src/core/cpp_core/`.
+3.  **Concluído!** O script cuidará de tudo. Ao final, o executável `TrackieLink` estará localizado no diretório de build:
+    -   `build/src/core/cpp_core/TrackieLink` (Linux/macOS)
+    -   `build\src\core\cpp_core\Release\TrackieLink.exe` (Windows)
 
 ## Uso
 

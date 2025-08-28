@@ -14,3 +14,13 @@ add_library(trackie_utils STATIC
 target_include_directories(trackie_utils PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# ---- Tests ----
+if(BUILD_TESTING)
+    message(STATUS "Tests enabled for trackie_utils")
+    add_executable(test_base64 tests/test_base64.cpp)
+    target_link_libraries(test_base64 PRIVATE trackie_utils GTest::gtest_main)
+
+    include(GoogleTest)
+    gtest_discover_tests(test_base64)
+endif()

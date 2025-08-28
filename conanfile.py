@@ -15,7 +15,8 @@ class TrackieLinkConan(ConanFile):
         self.requires("gtest/1.14.0")
 
     def layout(self):
-        # We will use a build folder for the build outputs
         self.folders.build = "build"
-        # The generated files (conan_toolchain.cmake, etc.) will be in the build/generators folder
-        self.generators_folder = "generators"
+        # The generator files will be placed in the 'build' folder.
+        # This is consistent with the --output-folder=build argument
+        # used in the build scripts.
+        self.folders.generators = "build"
