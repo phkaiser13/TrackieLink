@@ -17,8 +17,11 @@ target_include_directories(vision_processing PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# A biblioteca de visão depende do OpenCV (renomeado para opencv_manual) e da nossa API de inferência em C.
+# A biblioteca de visão depende dos componentes do OpenCV e da nossa API de inferência em C.
 target_link_libraries(vision_processing PUBLIC
-        opencv_manual
         c_inference
+        OpenCV::core
+        OpenCV::imgproc
+        OpenCV::highgui
+        OpenCV::videoio
 )

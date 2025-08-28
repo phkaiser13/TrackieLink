@@ -1,0 +1,47 @@
+name: CI de Build Principal
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # Permite acionamento manual
+
+jobs:
+  build-ubuntu:
+    name: Build em Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: 2. Instalação do Toolchain Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: 3. Instalação de Dependências do Sistema (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            libcurl4-openssl-dev \
+            libonnxruntime-dev \
+            portaudio19-dev \
+            libopencv-dev \
+            pkg-config
+
+      - name: 4. Configuração do Projeto com CMake
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+
+      - name: 5. Compilação do Projeto
+        run: |
+          cd build
+          cmake --build . --config Release

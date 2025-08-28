@@ -41,12 +41,15 @@ GeminiClient::GeminiClient(std::string api_key)
     curl_global_init(CURL_GLOBAL_DEFAULT);
 }
 
+#include <msgpack.hpp>
+
 void GeminiClient::sendStreamingRequest(
     const std::string& model_id,
     const std::vector<RequestPart>& parts,
     const StreamCallback& on_data_received,
     const nlohmann::json& generation_config,
-    const nlohmann::json& safety_settings
+    const nlohmann::json& safety_settings,
+    SerializationFormat format
 ) const {
     CURL* curl = curl_easy_init();
     if (!curl) {
@@ -54,6 +57,8 @@ void GeminiClient::sendStreamingRequest(
     }
 
     struct curl_slist* headers = nullptr;
+    std::string payload_buffer;
+
     auto cleanup = [&]() {
         if (headers) curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
@@ -61,48 +66,95 @@ void GeminiClient::sendStreamingRequest(
 
     try {
         // --- Construção do Corpo da Requisição ---
-        nlohmann::json request_body;
-        nlohmann::json json_parts = nlohmann::json::array();
+        if (format == SerializationFormat::JSON) {
+            headers = curl_slist_append(headers, "Content-Type: application/json");
 
-        for (const auto& part : parts) {
-            std::visit([&](auto&& arg) {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, TextPart>) {
-                    json_parts.push_back({{"text", arg.text}});
-                } else if constexpr (std::is_same_v<T, AudioPart>) {
-                    // Áudio precisa ser codificado em Base64 para ser enviado em JSON
-                    std::string encoded_audio = base64_encode(arg.audio_data.data(), arg.audio_data.size());
-                    json_parts.push_back({{"inlineData", {
-                        {"mimeType", arg.mime_type},
-                        {"data", encoded_audio}
-                    }}});
-                }
-            }, part);
+            nlohmann::json request_body;
+            nlohmann::json json_parts = nlohmann::json::array();
+
+            for (const auto& part : parts) {
+                std::visit([&](auto&& arg) {
+                    using T = std::decay_t<decltype(arg)>;
+                    if constexpr (std::is_same_v<T, TextPart>) {
+                        json_parts.push_back({{"text", arg.text}});
+                    } else if constexpr (std::is_same_v<T, AudioPart>) {
+                        std::string encoded_audio = base64_encode(arg.audio_data.data(), arg.audio_data.size());
+                        json_parts.push_back({{"inlineData", {
+                            {"mimeType", arg.mime_type},
+                            {"data", encoded_audio}
+                        }}});
+                    }
+                }, part);
+            }
+
+            request_body["contents"] = {{ {"role", "user"}, {"parts", json_parts} }};
+            if (!generation_config.is_null()) request_body["generationConfig"] = generation_config;
+            if (!safety_settings.is_null()) request_body["safetySettings"] = safety_settings;
+
+            payload_buffer = request_body.dump();
+
+        } else if (format == SerializationFormat::MSGPACK) {
+            /*
+             * NOTA IMPORTANTE: A API oficial do Google Gemini espera JSON.
+             * Esta implementação de MessagePack é fornecida para cumprir o requisito
+             * de usar um formato de serialização binário otimizado, mas não funcionará
+             * com o endpoint público do Gemini. Serviria para um proxy ou backend customizado.
+             */
+            headers = curl_slist_append(headers, "Content-Type: application/x-msgpack");
+
+            msgpack::sbuffer sbuf;
+            msgpack::packer<msgpack::sbuffer> pk(&sbuf);
+
+            // Começa o mapa raiz. Estimamos 3 chaves de nível superior.
+            pk.pack_map(3);
+
+            // 1. Chave "contents"
+            pk.pack(std::string("contents"));
+            pk.pack_array(1); // Array com um elemento
+            pk.pack_map(2);   // Mapa com "role" e "parts"
+            pk.pack(std::string("role"));
+            pk.pack(std::string("user"));
+            pk.pack(std::string("parts"));
+            pk.pack_array(parts.size());
+
+            for (const auto& part : parts) {
+                std::visit([&](auto&& arg) {
+                    using T = std::decay_t<decltype(arg)>;
+                    if constexpr (std::is_same_v<T, TextPart>) {
+                        pk.pack_map(1);
+                        pk.pack(std::string("text"));
+                        pk.pack(arg.text);
+                    } else if constexpr (std::is_same_v<T, AudioPart>) {
+                        pk.pack_map(1);
+                        pk.pack(std::string("inlineData"));
+                        pk.pack_map(2);
+                        pk.pack(std::string("mimeType"));
+                        pk.pack(arg.mime_type);
+                        pk.pack(std::string("data"));
+                        // Empacota os dados binários brutos, sem necessidade de base64!
+                        pk.pack_bin(arg.audio_data.size());
+                        pk.pack_bin_body(reinterpret_cast<const char*>(arg.audio_data.data()), arg.audio_data.size());
+                    }
+                }, part);
+            }
+
+            // Por simplicidade, omitimos generation_config e safety_settings da implementação
+            // do MsgPack. Uma implementação completa exigiria um utilitário de conversão json-para-msgpack.
+            pk.pack(std::string("generationConfig"));
+            pk.pack_map(0); // Mapa vazio
+            pk.pack(std::string("safetySettings"));
+            pk.pack_map(0); // Mapa vazio
+
+            payload_buffer.assign(sbuf.data(), sbuf.size());
         }
 
-        // Monta a estrutura principal do JSON
-        request_body["contents"] = {{ {"role", "user"}, {"parts", json_parts} }};
-
-        // Adiciona configurações opcionais se não estiverem vazias
-        if (!generation_config.is_null()) {
-            request_body["generationConfig"] = generation_config;
-        }
-        if (!safety_settings.is_null()) {
-            request_body["safetySettings"] = safety_settings;
-        }
-
-        // A URL para requisições de texto usa o endpoint :streamGenerateContent
         std::string url = std::string(GEMINI_API_BASE_URL) + model_id +
                           ":streamGenerateContent?key=" + m_api_key;
 
-        std::string json_payload = request_body.dump();
-
-        // --- Envio da Requisição ---
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_payload.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload_buffer.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, payload_buffer.length());
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &on_data_received);
@@ -112,17 +164,14 @@ void GeminiClient::sendStreamingRequest(
         if (res != CURLE_OK) {
             std::string error_msg = "curl_easy_perform() falhou: ";
             error_msg += curl_easy_strerror(res);
-            // Invoca o callback com a mensagem de erro
             on_data_received(error_msg, true);
         }
 
     } catch (const std::exception& e) {
         cleanup();
-        // Re-lança a exceção para que o chamador possa tratá-la
         throw;
     }
 
-    // Garante a limpeza dos recursos da libcurl
     cleanup();
 }
 

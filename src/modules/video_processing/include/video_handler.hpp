@@ -40,11 +40,14 @@ namespace trackie::video {
         VideoHandler(const VideoHandler&) = delete;
         VideoHandler& operator=(const VideoHandler&) = delete;
 
+        enum class ProcessMode { CPU, GPU_GRAYSCALE };
+
         /**
          * @brief Inicia o loop de captura de vídeo em um thread separado.
          * @param callback A função a ser chamada para cada novo frame.
+         * @param mode O modo de processamento a ser usado (CPU ou GPU).
          */
-        void startCapture(const VideoFrameCallback& callback);
+        void startCapture(const VideoFrameCallback& callback, ProcessMode mode = ProcessMode::CPU);
 
         /**
          * @brief Sinaliza para o loop de captura parar e aguarda o thread finalizar.
@@ -64,7 +67,8 @@ namespace trackie::video {
 
         VideoFrameCallback m_frame_callback;
 
-        // --- Gerenciamento de Thread ---
+        // --- Gerenciamento de Thread e Modo ---
+        ProcessMode m_mode;
         std::thread m_capture_thread;
         std::atomic<bool> m_is_running{false};
     };

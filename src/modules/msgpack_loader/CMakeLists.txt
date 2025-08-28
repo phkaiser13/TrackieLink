@@ -22,18 +22,15 @@ add_library(msgpack_loader STATIC
 # tenha acesso automático ao diretório 'include'.
 target_include_directories(msgpack_loader PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${NLOHMANN_JSON_INCLUDE_DIR}
 )
 
 # --- Vinculando Dependências ---
 #
-# Esta biblioteca tem duas dependências principais:
-# 1. msgpack-c: A biblioteca C++ para manipulação de dados MessagePack.
+# Esta biblioteca tem duas dependências principais, que são os alvos INTERFACE
+# que definimos no CMakeLists.txt raiz:
+# 1. msgpackc: A biblioteca C++ para manipulação de dados MessagePack.
 # 2. nlohmann_json: Para conversão dos dados para JSON estruturado.
-#
-# Nota: Esses alvos devem ter sido definidos no CMakeLists.txt raiz com os nomes:
-# msgpack_manual e nlohmann_manual.
 target_link_libraries(msgpack_loader PUBLIC
-        msgpack_manual
-        nlohmann_manual
+        msgpackc
+        nlohmann_json
 )
