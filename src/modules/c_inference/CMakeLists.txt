@@ -23,13 +23,14 @@ add_library(c_inference STATIC
 target_include_directories(c_inference PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src/shared/types
-        ${ONNXRUNTIME_INCLUDE_DIR}
 )
 
 # --- Vinculando Dependência: ONNX Runtime ---
 #
-# O alvo 'onnxruntime_manual' foi definido no CMakeLists.txt principal.
-# Usamos 'PUBLIC' porque os headers expõem tipos do ONNX Runtime.
+# Vinculamos ao alvo 'ONNXRuntime::onnxruntime' fornecido pelo find_package.
+# Usamos 'PUBLIC' porque os headers expostos (inference.h) incluem tipos
+# do ONNX Runtime (como OrtApi), então qualquer consumidor desta biblioteca
+# também precisa conhecer os cabeçalhos do ONNX.
 target_link_libraries(c_inference PUBLIC
-        onnxruntime_manual
+        ONNXRuntime::onnxruntime
 )

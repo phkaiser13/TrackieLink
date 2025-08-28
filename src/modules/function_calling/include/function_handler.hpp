@@ -1,42 +1,64 @@
-/*
-* Author: Pedro h. Garcia <phkaiser13>.
- * Licensed under the vyAI Social Commons License 1.0
- * See the LICENSE file in the project root.
- *
- * You are free to use, modify, and share this file under the terms of the license,
- * provided proper attribution and open distribution are maintained.
- */
-
 #pragma once
 
-#include "yolo_processor.hpp"
-#include "face_processor.hpp"
-#include "midas_processor.hpp"
-#include <nlohmann/json.hpp>
 #include <string>
+#include <functional>
+#include <nlohmann/json.hpp>
+#include <map>
 #include <memory>
-#include <opencv2/core/mat.hpp>
 
 namespace trackie::functions {
 
-    class FunctionHandler {
-    public:
-        FunctionHandler(
-            std::shared_ptr<vision::YoloProcessor> yolo,
-            std::shared_ptr<vision::FaceProcessor> face,
-            std::shared_ptr<vision::MidasProcessor> midas
-        );
+using json = nlohmann::json;
 
-        std::string execute(const std::string& function_name, const nlohmann::json& args, const cv::Mat& current_frame);
+// A generic function that takes JSON arguments and returns a JSON result.
+// This provides a universal signature for all callable functions.
+using GenericFunction = std::function<json(const json&)>;
 
-    private:
-        std::string _handle_identify_person(const cv::Mat& frame);
-        std::string _handle_save_face(const nlohmann::json& args, const cv::Mat& frame);
-        std::string _handle_find_object(const nlohmann::json& args, const cv::Mat& frame);
+// Represents a function that can be called by the AI model.
+// It contains all the metadata needed to describe the function to the AI.
+struct RegisteredFunction {
+    std::string name;
+    std::string description;
+    json parameters; // JSON Schema object describing the function's parameters.
+    GenericFunction function;
+};
 
-        std::shared_ptr<vision::YoloProcessor> m_yolo_processor;
-        std::shared_ptr<vision::FaceProcessor> m_face_processor;
-        std::shared_ptr<vision::MidasProcessor> m_midas_processor;
-    };
+/**
+ * @class FunctionHandler
+ * @brief A generic, extensible handler for AI function calling (tools).
+ *
+ * This class manages a registry of functions that can be executed by the AI.
+ * It provides methods to register new functions at runtime and to execute them
+ * based on name and arguments provided by the model. It can also generate
+ * the tool schemas required by the AI API.
+ */
+class FunctionHandler {
+public:
+    FunctionHandler() = default;
+
+    /**
+     * @brief Registers a new function, making it available for the AI to call.
+     * @param func The function to register.
+     */
+    void registerFunction(const RegisteredFunction& func);
+
+    /**
+     * @brief Executes a function by name with the given arguments.
+     * @param function_name The name of the function to execute.
+     * @param args A JSON object containing the arguments.
+     * @return A JSON object with the result of the function call.
+     */
+    json execute(const std::string& function_name, const json& args);
+
+    /**
+     * @brief Gets the JSON schemas for all registered tools.
+     * @return A JSON array formatted for the 'tools' field of the Gemini API.
+     */
+    json getToolSchemas() const;
+
+private:
+    // The registry of all functions, keyed by their unique name.
+    std::map<std::string, RegisteredFunction> m_functions;
+};
 
 } // namespace trackie::functions

@@ -15,12 +15,12 @@ add_library(gemini_rest_client STATIC
 # --- Expondo os Cabeçalhos Públicos ---
 target_include_directories(gemini_rest_client PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${NLOHMANN_JSON_INCLUDE_DIR}
 )
 
 # --- Vinculando Dependências ---
-# Substituímos CURL::libcurl por libcurl_manual, conforme definido no CMakeLists.txt raiz
+# Vinculamos ao alvo moderno `CURL::CURL` fornecido pelo `find_package`.
 target_link_libraries(gemini_rest_client PUBLIC
-        libcurl_manual
+        CURL::CURL
+        nlohmann_json
         trackie_utils
 )

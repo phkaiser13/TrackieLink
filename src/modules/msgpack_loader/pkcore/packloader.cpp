@@ -1,52 +1,84 @@
-/*
- * Author: Pedro h. Garcia <phkaiser13>.
- * Licensed under the vyAI Social Commons License 1.0
- * See the LICENSE file in the project root.
- *
- * You are free to use, modify, and share this file under the terms of the license,
- * provided proper attribution and open distribution are maintained.
- */
-
 #include "packloader.hpp"
 #include <fstream>
-#include <vector>
 #include <stdexcept>
 
 namespace trackie::loader {
 
-nlohmann::json loadMsgpackFile(const std::filesystem::path& file_path) {
-    // 1. Verificar se o arquivo existe antes de tentar abri-lo.
-    //    Isso nos permite fornecer uma mensagem de erro mais clara.
+PackLoader::PackLoader(const std::filesystem::path& file_path)
+    : m_handle(new msgpack::object_handle()) {
     if (!std::filesystem::exists(file_path)) {
-        throw std::runtime_error("Arquivo de configuração não encontrado em: " + file_path.string());
+        delete m_handle;
+        throw std::runtime_error("Config file not found: " + file_path.string());
     }
 
-    // 2. Abrir o arquivo em modo binário.
-    //    'std::ios::ate' posiciona o cursor no final do arquivo,
-    //    o que nos permite descobrir seu tamanho facilmente.
     std::ifstream file(file_path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        throw std::runtime_error("Falha ao abrir o arquivo: " + file_path.string());
+        delete m_handle;
+        throw std::runtime_error("Failed to open file: " + file_path.string());
     }
 
-    // 3. Obter o tamanho do arquivo e alocar um buffer.
     std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg); // Voltar para o início do arquivo.
+    file.seekg(0, std::ios::beg);
 
-    // Usamos um std::vector<uint8_t> como nosso buffer. É seguro,
-    // gerencia sua própria memória e é compatível com as funções de parsing.
-    std::vector<uint8_t> buffer(size);
-
-    // 4. Ler todo o conteúdo do arquivo para o buffer.
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        throw std::runtime_error("Falha ao ler o conteúdo do arquivo: " + file_path.string());
+    m_buffer.resize(size);
+    if (!file.read(m_buffer.data(), size)) {
+        delete m_handle;
+        throw std::runtime_error("Failed to read file content: " + file_path.string());
     }
 
-    // 5. Fazer o parsing do buffer de MessagePack para um objeto JSON.
-    //    A biblioteca nlohmann/json tem uma função estática 'from_msgpack'
-    //    que faz exatamente isso. Ela lançará uma exceção em caso de dados
-    //    corrompidos ou malformados.
-    return nlohmann::json::from_msgpack(buffer);
+    try {
+        msgpack::unpack(*m_handle, m_buffer.data(), m_buffer.size());
+    } catch (const msgpack::parse_error& e) {
+        delete m_handle;
+        throw std::runtime_error("Invalid MessagePack format in " + file_path.string() + ": " + e.what());
+    }
+
+    if (m_handle->get().type != msgpack::type::MAP) {
+        delete m_handle;
+        throw std::runtime_error("Config file root must be a map.");
+    }
+}
+
+PackLoader::~PackLoader() {
+    delete m_handle;
+}
+
+static const msgpack::object* find_value_by_key(const msgpack::object_handle* handle, const std::string& key) {
+    if (!handle || handle->get().type != msgpack::type::MAP) {
+        return nullptr;
+    }
+    const auto& map = handle->get().via.map;
+    for (uint32_t i = 0; i < map.size; ++i) {
+        const auto& map_key = map.ptr[i].key;
+        if (map_key.type == msgpack::type::STR && map_key.as<std::string>() == key) {
+            return &map.ptr[i].val;
+        }
+    }
+    return nullptr;
+}
+
+std::optional<std::string> PackLoader::getString(const std::string& key) const {
+    const msgpack::object* val_obj = find_value_by_key(m_handle, key);
+    if (val_obj && val_obj->type == msgpack::type::STR) {
+        return val_obj->as<std::string>();
+    }
+    return std::nullopt;
+}
+
+std::optional<int64_t> PackLoader::getInt(const std::string& key) const {
+    const msgpack::object* val_obj = find_value_by_key(m_handle, key);
+    if (val_obj && (val_obj->type == msgpack::type::POSITIVE_INTEGER || val_obj->type == msgpack::type::NEGATIVE_INTEGER)) {
+        return val_obj->as<int64_t>();
+    }
+    return std::nullopt;
+}
+
+std::optional<bool> PackLoader::getBool(const std::string& key) const {
+    const msgpack::object* val_obj = find_value_by_key(m_handle, key);
+    if (val_obj && val_obj->type == msgpack::type::BOOLEAN) {
+        return val_obj->as<bool>();
+    }
+    return std::nullopt;
 }
 
 } // namespace trackie::loader

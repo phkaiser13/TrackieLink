@@ -15,7 +15,11 @@ target_include_directories(video_processing PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Usa o alvo definido manualmente no CMakeLists.txt raiz
+# Vincula aos componentes específicos do OpenCV necessários para processamento de vídeo.
+# Estes alvos são fornecidos pelo find_package(OpenCV) no CMakeLists.txt raiz.
 target_link_libraries(video_processing PUBLIC
-        opencv_manual
+        OpenCV::core
+        OpenCV::imgproc
+        OpenCV::highgui
+        OpenCV::videoio
 )

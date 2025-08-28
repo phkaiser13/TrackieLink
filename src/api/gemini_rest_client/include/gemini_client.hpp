@@ -58,21 +58,28 @@ public:
      */
     ~GeminiClient();
 
+    enum class SerializationFormat { JSON, MSGPACK };
+
     /**
      * @brief Envia uma ou mais partes para o endpoint de streaming do Gemini.
      *
-     * Constrói uma requisição JSON com as partes fornecidas. Esta função é
-     * versátil e pode ser usada para enviar apenas texto, apenas áudio, ou
-     * uma combinação de ambos em uma única requisição multimodal.
+     * Constrói uma requisição com as partes fornecidas. A função pode serializar
+     * os dados como JSON (padrão) ou MessagePack.
      *
-     * @param model_id O identificador do modelo a ser usado (ex: "gemini-1.5-flash").
-     * @param parts Um vetor de `RequestPart` contendo os dados a serem enviados.
-     * @param on_data_received O callback que será invocado para cada pedaço de dados da resposta.
+     * @param model_id O identificador do modelo.
+     * @param parts Um vetor de `RequestPart` contendo os dados.
+     * @param on_data_received O callback para a resposta.
+     * @param generation_config Configurações de geração (formato JSON).
+     * @param safety_settings Configurações de segurança (formato JSON).
+     * @param format O formato de serialização a ser usado. Padrão é JSON.
      */
     void sendStreamingRequest(
         const std::string& model_id,
         const std::vector<RequestPart>& parts,
-        const StreamCallback& on_data_received
+        const StreamCallback& on_data_received,
+        const nlohmann::json& generation_config,
+        const nlohmann::json& safety_settings,
+        SerializationFormat format = SerializationFormat::JSON
     ) const;
 
 private:

@@ -1,7 +1,16 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
+
+# 1. Definição do Projeto e Linguagens
+# Habilitamos C, CXX, e opcionalmente CUDA e OBJCXX (Objective-C++) para máxima flexibilidade.
 project(TrackieLink VERSION 1.0 LANGUAGES C CXX)
 
-# --- Padrões da Linguagem ---
+# Em plataformas Apple, habilitamos o Objective-C++ para integração nativa.
+if(APPLE)
+    message(STATUS "Plataforma Apple detectada. Habilitando Objective-C++.")
+    enable_language(OBJCXX)
+endif()
+
+# 2. Padrões da Linguagem
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -10,94 +19,117 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-# --- Caminho para Dependências ---
-set(THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party)
+# Para Apple, definimos o padrão do Objective-C++ se a linguagem estiver habilitada
+if(CMAKE_OBJCXX_COMPILER)
+    message(STATUS "Compilador Objective-C++ detectado. Configurando padrão C++17 para OBJCXX.")
+    set(CMAKE_OBJCXX_STANDARD 17)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
 
-# --- Definição de Dependências de Terceiros como Alvos INTERFACE ---
-# Esta é a maneira moderna de gerenciar dependências locais.
-# Criamos um alvo para cada biblioteca que encapsula suas propriedades (includes, libs).
+# 3. Gestão de Dependências
+message(STATUS "Procurando dependências com find_package...")
+find_package(CURL REQUIRED)
+find_package(ONNXRuntime REQUIRED)
+find_package(PortAudio REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui videoio)
+find_package(Threads REQUIRED)
 
-# --- ONNX Runtime ---
-add_library(onnxruntime INTERFACE) # <<-- CORREÇÃO: Nome do alvo simplificado
-target_include_directories(onnxruntime SYSTEM INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/include)
-target_link_libraries(onnxruntime INTERFACE ${THIRD_PARTY_DIR}/OnnxRuntimeWin/lib/onnxruntime.lib)
-message(STATUS " - Configurado: ONNX Runtime (manual)")
+message(STATUS "Dependências externas encontradas com sucesso.")
 
-# --- libcurl ---
-add_library(CURL::libcurl INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão para compatibilidade
-set_target_properties(CURL::libcurl PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/CurlWinLibrary/include"
-        INTERFACE_LINK_LIBRARIES "${THIRD_PARTY_DIR}/CurlWinLibrary/lib/libcurl.a"
+# Para as bibliotecas "header-only" incluídas no repositório,
+# criamos alvos INTERFACE para fácil utilização nos submódulos.
+message(STATUS "Configurando dependências internas (header-only)...")
+
+# nlohmann-json
+add_library(nlohmann_json INTERFACE)
+target_include_directories(nlohmann_json INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/jsonlib/include
 )
-message(STATUS " - Configurado: libcurl (manual)")
-
-# --- msgpack-c ---
-add_library(msgpack-c::msgpack-c INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
-set_target_properties(msgpack-c::msgpack-c PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/mspacklib/include"
+# msgpack-c
+add_library(msgpackc INTERFACE)
+target_include_directories(msgpackc INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/mspacklib/include
 )
-message(STATUS " - Configurado: msgpack-c (manual)")
 
-# --- PortAudio ---
-add_library(PortAudio::portaudio INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
-set_target_properties(PortAudio::portaudio PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/PortaudioWinLib/include"
-        INTERFACE_LINK_LIBRARIES "${THIRD_PARTY_DIR}/PortaudioWinLib/lib/x64/ReleaseMinDependency/portaudio_x64.lib"
-)
-message(STATUS " - Configurado: PortAudio (manual)")
+message(STATUS " - nlohmann_json: Configurado como alvo INTERFACE")
+message(STATUS " - msgpack-c: Configurado como alvo INTERFACE")
 
-# --- OpenCV ---
-add_library(OpenCV::OpenCV INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
-set_target_properties(OpenCV::OpenCV PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/opencv-Win/include"
-        INTERFACE_LINK_LIBRARIES "${THIRD_PARTY_DIR}/opencv-Win/x64/vc16/lib/opencv_world4120.lib"
-)
-message(STATUS " - Configurado: OpenCV (manual)")
+# 4. Suporte Opcional para CUDA
+find_package(CUDAToolkit QUIET)
+if(CUDAToolkit_FOUND)
+    message(STATUS "CUDA Toolkit encontrado. Habilitando a linguagem CUDA.")
+    enable_language(CUDA)
+    add_definitions(-DWITH_CUDA)
+else()
+    message(STATUS "CUDA Toolkit não encontrado. Funcionalidades de GPU serão desabilitadas.")
+endif()
 
-# --- nlohmann-json ---
-add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED) # <<-- CORREÇÃO: Usando nome de alvo padrão
-set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${THIRD_PARTY_DIR}/jsonlib/include"
-)
-message(STATUS " - Configurado: nlohmann-json (manual)")
-
-# --- Módulo Rust ---
+# 5. Compilação do Módulo Rust (rust_core)
 message(STATUS "Configurando a compilação do módulo Rust (rust_core)...")
+
+# Define o caminho de saída para a biblioteca Rust para ser consistente.
+set(RUST_TARGET_DIR ${CMAKE_BINARY_DIR}/rust_target)
+set(RUST_CARGO_ARGS --release --target-dir ${RUST_TARGET_DIR})
+
 add_custom_target(
-        build_rust_core ALL
-        COMMAND cargo build --release
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/core/rust_core
-        COMMENT "Compilando a biblioteca 'rust_core' com Cargo..."
-        VERBATIM
+    build_rust_core ALL
+    COMMAND cargo build ${RUST_CARGO_ARGS}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/core/rust_core
+    COMMENT "Compilando a biblioteca 'rust_core' com Cargo..."
+    VERBATIM
 )
 
-add_library(rust_core_lib STATIC IMPORTED) # <<-- CORREÇÃO: GLOBAL não é necessário aqui
+# A biblioteca Rust é importada como um alvo para que outros possam depender dela.
+# O nome do arquivo .a ou .lib pode variar entre plataformas.
+if(WIN32)
+    set(RUST_LIB_PATH ${RUST_TARGET_DIR}/release/rust_core.lib)
+else()
+    set(RUST_LIB_PATH ${RUST_TARGET_DIR}/release/librust_core.a)
+endif()
+
+add_library(rust_core_lib STATIC IMPORTED)
 set_target_properties(rust_core_lib PROPERTIES
-        IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/src/core/rust_core/target/release/rust_core.lib
+    IMPORTED_LOCATION "${RUST_LIB_PATH}"
 )
-# A dependência é do alvo final no Rust, não da biblioteca importada
-# add_dependencies(rust_core_lib build_rust_core) # <<-- CORREÇÃO: Esta linha é redundante e pode causar problemas
+add_dependencies(rust_core_lib build_rust_core)
 
-# --- Organização dos Submódulos ---
-message(STATUS "Configurando os módulos C/C++...")
+# 6. Organização dos Submódulos e Alvos do Projeto
+message(STATUS "Configurando os módulos do projeto...")
 
-# A ordem é crucial para que as dependências sejam conhecidas antes de serem usadas.
-# Nível 0: Utilitários e APIs de baixo nível
+# Cores (Nível 0 - Fundações)
+add_subdirectory(src/core/c_core)
+if(CUDAToolkit_FOUND)
+    add_subdirectory(src/core/cuda_core)
+endif()
+if(APPLE)
+    # These modules will only be configured and built on Apple platforms.
+    add_subdirectory(src/core/objc_core)
+    add_subdirectory(src/modules/metal_renderer)
+endif()
+# O Rust já é compilado acima.
+
+# Utilitários e APIs (Nível 1)
 add_subdirectory(src/shared/utils)
 add_subdirectory(src/api/gemini_rest_client)
+if(CUDAToolkit_FOUND)
+    add_subdirectory(src/modules/cuda_linalg)
+endif()
 add_subdirectory(src/modules/c_inference)
 add_subdirectory(src/modules/msgpack_loader)
 
-# Nível 1: Processadores de I/O e Visão
+# Módulos de Processamento (Nível 2)
 add_subdirectory(src/modules/audio_processing)
 add_subdirectory(src/modules/video_processing)
 add_subdirectory(src/modules/vision)
 
-# Nível 2: Lógica de Negócios
+# Lógica de Negócios e Serviços (Nível 3)
 add_subdirectory(src/modules/function_calling)
+add_subdirectory(src/Services/gemini_service)
 
-# Nível 3: Serviços de Longa Duração
-add_subdirectory(src/services/gemini_service)
-
-# Nível 4: O Orquestrador Principal
+# Orquestrador Principal (Nível 4)
 add_subdirectory(src/core/cpp_core)
+
+message(STATUS "Configuração do CMake concluída.")
+
+# 7. Habilitação de Testes com CTest
+enable_testing()
