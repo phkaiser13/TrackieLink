@@ -26,15 +26,41 @@ if(CMAKE_OBJCXX_COMPILER)
     set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
 endif()
 
-# 3. Gestão de Dependências
-message(STATUS "Procurando dependências com find_package...")
+# 3. Gestão de Dependências com Conan
+# O toolchain do Conan é injetado via linha de comando (CMAKE_TOOLCHAIN_FILE)
+# ou incluído aqui para conveniência do desenvolvedor.
+if(EXISTS "${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
+    include("${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
+    message(STATUS "Toolchain do Conan encontrado e carregado.")
+endif()
+
+message(STATUS "Procurando dependências via Conan (CMakeDeps)...")
+# O Conan gera os arquivos 'Find<Lib>.cmake' necessários para o CMake.
 find_package(CURL REQUIRED)
 find_package(ONNXRuntime REQUIRED)
-find_package(PortAudio REQUIRED)
-find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui videoio)
-find_package(Threads REQUIRED)
+find_package(OpenCV REQUIRED) # Conan lida com os componentes internamente
+find_package(spdlog REQUIRED)
+find_package(Threads REQUIRED) # Threads ainda é melhor gerenciado pelo CMake
 
 message(STATUS "Dependências externas encontradas com sucesso.")
+
+# 3.5. Gestão de Dependências via FetchContent (para PortAudio)
+include(FetchContent)
+message(STATUS "Configurando PortAudio via FetchContent...")
+
+FetchContent_Declare(
+    PortAudio
+    GIT_REPOSITORY https://git.assembla.com/portaudio.git
+    GIT_TAG v19.7.0 # Use a stable tag
+)
+
+FetchContent_MakeAvailable(PortAudio)
+
+# O alvo `portaudio_static` é criado pelo build do PortAudio.
+# Crie um alias para facilitar o uso.
+add_library(portaudio ALIAS portaudio_static)
+
+message(STATUS "PortAudio configurado com sucesso.")
 
 # Para as bibliotecas "header-only" incluídas no repositório,
 # criamos alvos INTERFACE para fácil utilização nos submódulos.
@@ -129,7 +155,10 @@ add_subdirectory(src/Services/gemini_service)
 # Orquestrador Principal (Nível 4)
 add_subdirectory(src/core/cpp_core)
 
-message(STATUS "Configuração do CMake concluída.")
-
 # 7. Habilitação de Testes com CTest
+# O GTest é encontrado aqui, mas só será usado nos submódulos que definem testes.
+find_package(GTest REQUIRED)
 enable_testing()
+include(CTest)
+
+message(STATUS "Configuração do CMake concluída.")

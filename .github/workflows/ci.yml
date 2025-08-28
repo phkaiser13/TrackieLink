@@ -23,25 +23,29 @@ jobs:
           profile: minimal
           override: true
 
-      - name: 3. Instalação de Dependências do Sistema (apt)
+      - name: 3. Instalação de Dependências Essenciais (apt)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             cmake \
-            libcurl4-openssl-dev \
-            libonnxruntime-dev \
-            portaudio19-dev \
-            libopencv-dev \
-            pkg-config
+            pkg-config \
+            python3-pip
 
-      - name: 4. Configuração do Projeto com CMake
-        run: |
-          mkdir build
-          cd build
-          cmake ..
+      - name: 4. Instalação do Conan
+        run: pip install conan
 
-      - name: 5. Compilação do Projeto
-        run: |
-          cd build
-          cmake --build . --config Release
+      - name: 5. Configuração do Perfil Conan
+        run: conan profile detect --force
+
+      - name: 6. Instalação das Dependências com Conan
+        run: conan install . --output-folder=build --build=missing -s:h build_type=Release -s:b build_type=Release
+
+      - name: 7. Configuração do Projeto com CMake
+        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+
+      - name: 8. Compilação do Projeto
+        run: cmake --build build --config Release
+
+      - name: 9. Execução dos Testes
+        run: ctest --test-dir build --output-on-failure

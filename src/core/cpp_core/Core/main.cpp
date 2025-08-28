@@ -8,7 +8,7 @@
  */
 
 #include "application.hpp"
-#include "logger.hpp"
+#include <spdlog/spdlog.h>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -32,12 +32,13 @@ int main(int argc, char* argv[]) {
         } else if (args[i] == "--show_preview") {
             show_preview = true;
         } else if (args[i] == "--help" || args[i] == "-h") {
-            std::cout << "Uso: TrackieLink [--mode <camera|screen>] [--show_preview]\n";
+            spdlog::info("Uso: TrackieLink [--mode <camera|screen>] [--show_preview]");
             return 0;
         }
     }
 
     try {
+        spdlog::info("Iniciando a aplicação TrackieLink...");
         // Cria a aplicação na pilha. O RAII garante que o destrutor será chamado.
         trackie::core::Application app(mode, show_preview);
 
@@ -46,10 +47,10 @@ int main(int argc, char* argv[]) {
 
     } catch (const std::exception& e) {
         // Usa nosso logger para o erro final.
-        trackie::log::TLog(trackie::log::LogLevel::ERROR, "Aplicação terminada por uma exceção: ", e.what());
+        spdlog::critical("Aplicação terminada por uma exceção: {}", e.what());
         return 1;
     } catch (...) {
-        trackie::log::TLog(trackie::log::LogLevel::ERROR, "Aplicação terminada por uma exceção desconhecida.");
+        spdlog::critical("Aplicação terminada por uma exceção desconhecida.");
         return 1;
     }
 
