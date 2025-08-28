@@ -1,35 +1,21 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
 REM Criar diretórios se não existirem
-if not exist src\third_party mkdir src\third_party
-if not exist src\WorkTools\Models\Contextual mkdir src\WorkTools\Models\Contextual
+if not exist "src\WorkTools\Models\Contextual" mkdir "src\WorkTools\Models\Contextual"
+if not exist "build" mkdir "build"
 
-REM Ferramenta para descompactar (usar powershell Expand-Archive)
-set POWERSHELL=PowerShell -Command "Expand-Archive -Force"
-
-echo Baixando bibliotecas...
-
-REM Baixar e extrair bibliotecas
-set LIB_URL_BASE=https://github.com/phkaiser13/TrackieAssets/releases/download/Lib.LINK.1.0/
-
-for %%f in (
-    CurlWinLibrary.zip
-    OnnxRuntimeWin.zip
-    opencv-Win.zip
-    PortaudioWinLib.zip
-) do (
-    echo Baixando %%f...
-    powershell -Command "(New-Object System.Net.WebClient).DownloadFile('%LIB_URL_BASE%%%f', 'src\third_party\%%f')"
-    echo Extraindo %%f...
-    %POWERSHELL% "src\third_party\%%f" "src\third_party"
-    echo Deletando zip %%f...
-    del src\third_party\%%f
+echo Instalando dependencias com Conan...
+REM Adicionamos as flags para o Conan instalar dependencias de sistema, se necessário (principalmente para Linux/WSL).
+conan install . --output-folder=build --build=missing -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
+if %errorlevel% neq 0 (
+    echo Erro durante a instalacao com Conan.
+    exit /b %errorlevel%
 )
 
-echo Bibliotecas baixadas e extraídas.
+echo Dependências instaladas.
 
-echo Baixando modelos...
+echo Baixando modelos de IA...
 
 set MODEL_URL_BASE=https://github.com/phkaiser13/TrackieAssets/releases/download/Base.LINK.1.0/
 
@@ -46,12 +32,19 @@ for %%m in (
 echo Modelos baixados.
 
 REM Build com CMake
-echo Rodando cmake para buildar projeto...
+echo Configurando o projeto com CMake...
 cmake -S . -B build
-cmake --build build
-REM Opcional: buildar com cmake --build
-echo Buildando o projeto...
-cmake --build build
+if %errorlevel% neq 0 (
+    echo Erro durante a configuracao com CMake.
+    exit /b %errorlevel%
+)
+
+echo Compilando o projeto...
+cmake --build build --config Release
+if %errorlevel% neq 0 (
+    echo Erro durante a compilacao.
+    exit /b %errorlevel%
+)
 
 echo Processo finalizado.
-pause
+echo O executavel esta em: build\src\core\cpp_core\Release\TrackieLink.exe
