@@ -24,4 +24,21 @@ target_link_libraries(TrackieLink PRIVATE
         nlohmann_json
         rust_core_lib
         Threads::Threads
+        spdlog::spdlog
 )
+
+if(BUILD_TESTING)
+    message(STATUS "Configurando testes para o cpp_core...")
+
+    add_executable(cpp_core_tests
+        tests/sample_test.cpp
+    )
+
+    target_link_libraries(cpp_core_tests PRIVATE
+        GTest::gtest
+        GTest::gtest_main
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(cpp_core_tests)
+endif()

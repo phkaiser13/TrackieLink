@@ -26,5 +26,5 @@ target_include_directories(audio_processing PUBLIC
 # PortAudio::portaudio é o alvo moderno importado que deve ser
 # fornecido por um `find_package(PortAudio)` bem-sucedido.
 target_link_libraries(audio_processing PRIVATE
-        PortAudio::portaudio
+        portaudio
 )
