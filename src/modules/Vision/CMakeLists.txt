@@ -11,17 +11,20 @@ add_library(vision_processing STATIC
         src/yolo_processor.cpp
         src/face_processor.cpp
         src/midas_processor.cpp
+        src/vision_cuda.cu
 )
 
 target_include_directories(vision_processing PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# A biblioteca de visão depende dos componentes do OpenCV e da nossa API de inferência em C.
+# A biblioteca de visão depende dos componentes do OpenCV, da nossa API de inferência em C,
+# e das bibliotecas do CUDA Toolkit.
 target_link_libraries(vision_processing PUBLIC
         c_inference
         OpenCV::core
         OpenCV::imgproc
         OpenCV::highgui
         OpenCV::videoio
+        CUDA::cudart # Link com o CUDA Runtime
 )

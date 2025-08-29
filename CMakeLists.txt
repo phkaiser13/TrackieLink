@@ -134,9 +134,20 @@ if(APPLE)
 endif()
 # O Rust já é compilado acima.
 
-# Utilitários e APIs (Nível 1)
+# --- Núcleo de IA Abstrato (Nível 0.5) ---
+# O ai_core é uma biblioteca de interface (apenas cabeçalhos) para que
+# todos os outros componentes possam usar a interface AIProvider.
+add_library(ai_core INTERFACE)
+target_include_directories(ai_core INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+# Utilitários e Provedores (Nível 1)
 add_subdirectory(src/shared/utils)
-add_subdirectory(src/api/gemini_rest_client)
+add_subdirectory(src/providers/gemini_provider)
+add_subdirectory(src/providers/openai_provider)
+add_subdirectory(src/providers/anthropic_provider)
+add_subdirectory(src/providers/meta_provider)
 if(CUDAToolkit_FOUND)
     add_subdirectory(src/modules/cuda_linalg)
 endif()
