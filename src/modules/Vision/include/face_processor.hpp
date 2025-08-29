@@ -9,18 +9,23 @@
 
 #pragma once
 
-#include "inference.h"
+#include "inference_engine.hpp" // Using the new C++ engine
 #include "vision_types.h"
 #include <opencv2/core/mat.hpp>
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <memory>
 
 namespace trackie::vision {
 
     class FaceProcessor {
     public:
-        FaceProcessor(InferenceSession* detector, InferenceSession* recognizer, const std::filesystem::path& db_path);
+        FaceProcessor(
+            std::shared_ptr<trackie::inference::InferenceEngine> detector,
+            std::shared_ptr<trackie::inference::InferenceEngine> recognizer,
+            const std::filesystem::path& db_path
+        );
 
         Identity identifyPerson(const cv::Mat& frame, float threshold);
         bool saveNewFace(const cv::Mat& frame, const std::string& person_name);
@@ -35,8 +40,8 @@ namespace trackie::vision {
         std::vector<DetectionResult> _detectFaces(const cv::Mat& frame);
         std::vector<float> _generateEmbedding(const cv::Mat& face_image);
 
-        InferenceSession* m_detector_session;
-        InferenceSession* m_recognizer_session;
+        std::shared_ptr<trackie::inference::InferenceEngine> m_detector_engine;
+        std::shared_ptr<trackie::inference::InferenceEngine> m_recognizer_engine;
         std::filesystem::path m_db_path;
         std::vector<KnownFace> m_known_faces;
     };

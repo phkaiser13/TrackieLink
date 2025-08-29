@@ -164,7 +164,8 @@ add_subdirectory(src/providers/meta_provider)
 if(CUDAToolkit_FOUND)
     add_subdirectory(src/modules/cuda_linalg)
 endif()
-add_subdirectory(src/modules/c_inference)
+# add_subdirectory(src/modules/c_inference) # Deprecated in favor of cpp_inference
+add_subdirectory(src/modules/cpp_inference) # New C++ inference engine
 add_subdirectory(src/modules/msgpack_loader)
 
 # Módulos de Processamento (Nível 2)
