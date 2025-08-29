@@ -8,9 +8,9 @@
 #    then create a library (.metallib) from the .air file.
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/default.metallib
-    COMMAND xcrun -sdk macosx metal -c ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders.metal -o ${CMAKE_CURRENT_BINARY_DIR}/air.air
+    COMMAND xcrun -sdk macosx metal -c ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders.metal ${CMAKE_CURRENT_SOURCE_DIR}/src/compute_kernels.metal -o ${CMAKE_CURRENT_BINARY_DIR}/air.air
     COMMAND xcrun -sdk macosx metallib ${CMAKE_CURRENT_BINARY_DIR}/air.air -o ${CMAKE_CURRENT_BINARY_DIR}/default.metallib
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders.metal
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders.metal ${CMAKE_CURRENT_SOURCE_DIR}/src/compute_kernels.metal
     COMMENT "Compiling Metal Shaders into default.metallib"
 )
 

@@ -90,6 +90,16 @@ else()
     message(STATUS "CUDA Toolkit não encontrado. Funcionalidades de GPU serão desabilitadas.")
 endif()
 
+# Suporte Opcional para ROCm
+find_package(ROCM QUIET)
+if(ROCM_FOUND)
+    message(STATUS "ROCm found. Enabling HIP language.")
+    enable_language(HIP)
+    add_definitions(-DWITH_ROCM)
+else()
+    message(STATUS "ROCm not found. ROCm-based GPU features will be disabled.")
+endif()
+
 # 5. Compilação do Módulo Rust (rust_core)
 message(STATUS "Configurando a compilação do módulo Rust (rust_core)...")
 
@@ -126,6 +136,9 @@ message(STATUS "Configurando os módulos do projeto...")
 add_subdirectory(src/core/c_core)
 if(CUDAToolkit_FOUND)
     add_subdirectory(src/core/cuda_core)
+endif()
+if(ROCM_FOUND)
+    add_subdirectory(src/core/rocm_core)
 endif()
 if(APPLE)
     # These modules will only be configured and built on Apple platforms.
