@@ -5,6 +5,8 @@ add_library(cuda_core STATIC
     src/memory.cu
     src/image_kernels.cu
     src/image_filters.cu
+    src/vector_ops.cu
+    src/matrix_ops.cu
 )
 
 # Expose the public include directory. Any module that uses cuda_core
